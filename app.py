@@ -1,81 +1,68 @@
 import streamlit as st
 
-# Currency exchange rates relative to USD
-CURRENCY_RATES = {
-    "USD": 1,
-    "EUR": 0.9,
-    "KRW": 1300,
-    "INR": 83,
-}
+st.set_page_config(page_title="SplitWave - Flexible Bill Splitter", layout="centered")
 
-st.set_page_config(page_title="SplitWave - Smart Bill Splitter", layout="centered")
+st.title("🌊 SplitWave — Flexible Bill Splitter")
 
-st.title("🌊 SplitWave — Next-gen Bill Splitter")
+# Ввод общей суммы
+total_amount = st.number_input("Enter total bill amount (USD)", min_value=0.01, format="%.2f")
 
-st.markdown("""
-Welcome to SplitWave! Create a bill, share it with friends, and track who has paid in their preferred currency.
-""")
+if "participants" not in st.session_state:
+    st.session_state.participants = {}  # {name: {'amount': float, 'paid': bool}}
 
-# --- Bill Creation ---
-st.header("1. Create a Bill")
+st.header("Add participants and their payment amounts")
 
-total = st.number_input("Enter total bill amount (USD)", min_value=0.01, format="%.2f")
-people = st.number_input("Number of people splitting", min_value=1, step=1, value=2)
+with st.form("add_participant_form", clear_on_submit=True):
+    pname = st.text_input("Participant name")
+    pamount = st.number_input("Amount to pay (USD)", min_value=0.01, format="%.2f")
+    submitted = st.form_submit_button("Add participant")
+    if submitted:
+        if pname.strip() == "":
+            st.error("Please enter a participant name.")
+        elif pname in st.session_state.participants:
+            st.error("This participant already exists.")
+        else:
+            st.session_state.participants[pname] = {"amount": pamount, "paid": False}
+            st.success(f"Added participant {pname} with amount ${pamount:.2f}")
 
-if total and people:
-    per_person_usd = total / people
-    st.write(f"Each person should pay: **${per_person_usd:.2f} USD**")
+if st.session_state.participants:
+    st.header("Participants and payment status")
 
-    if "bill_created" not in st.session_state or not st.session_state.bill_created:
-        if st.button("Create Bill"):
-            st.session_state.bill_created = True
-            st.session_state.payments = {}
-            st.success("Bill created! Share this app URL with your friends.")
+    total_assigned = sum(p['amount'] for p in st.session_state.participants.values())
+    st.write(f"Total bill amount: **${total_amount:.2f}**")
+    st.write(f"Sum of participants' assigned payments: **${total_assigned:.2f}**")
 
-# --- Join & Pay ---
-if st.session_state.get("bill_created", False):
-    st.header("2. Join & Mark Your Payment")
+    if abs(total_amount - total_assigned) > 0.01:
+        st.warning("Warning: The sum of participants' payments does not match the total bill amount.")
 
-    name = st.text_input("Enter your name")
-    currency = st.selectbox("Select your currency", list(CURRENCY_RATES.keys()))
-    amount_local = per_person_usd * CURRENCY_RATES[currency] if per_person_usd else 0
-
-    if name:
-        paid = st.session_state.payments.get(name, False)
-
-        col1, col2 = st.columns([1, 3])
+    for name, data in st.session_state.participants.items():
+        col1, col2, col3 = st.columns([3, 2, 2])
         with col1:
-            if not paid and st.button("Mark as Paid"):
-                st.session_state.payments[name] = True
-                st.success(f"Thank you {name}, you paid {amount_local:.2f} {currency}!")
-
+            st.write(f"**{name}**")
         with col2:
-            st.write(f"You owe: **{amount_local:.2f} {currency}**")
-    else:
-        st.info("Please enter your name to mark payment.")
+            st.write(f"Amount: ${data['amount']:.2f}")
+        with col3:
+            if not data['paid']:
+                if st.button(f"Mark {name} as Paid", key=f"pay_{name}"):
+                    st.session_state.participants[name]['paid'] = True
+                    st.experimental_rerun()
+            else:
+                st.write("✅ Paid")
 
-    # --- Payment status ---
-    st.header("3. Payment Status")
+    total_paid = sum(p['amount'] for p in st.session_state.participants.values() if p['paid'])
+    total_left = total_amount - total_paid
 
-    payments = st.session_state.payments
-    if payments:
-        paid_count = len(payments)
-        st.write(f"**{paid_count} / {people} paid**")
-        for p_name in payments:
-            st.write(f"- ✅ {p_name}")
-        # Show unpaid participants as placeholders (optional)
-        unpaid_count = people - paid_count
-        if unpaid_count > 0:
-            st.write(f"❌ {unpaid_count} person(s) not paid yet")
-        if paid_count == people:
-            st.balloons()
-            st.success("All paid! 🎉")
-    else:
-        st.write("No payments marked yet.")
+    st.markdown("---")
+    st.write(f"**Total paid: ${total_paid:.2f}**")
+    st.write(f"**Total left to pay: ${max(total_left, 0):.2f}**")
 
-    # Reset button
-    if st.button("Reset Payments"):
-        st.session_state.payments = {}
-        st.success("Payments reset, you can start over.")
+    if total_left <= 0 and total_assigned >= total_amount:
+        st.balloons()
+        st.success("All payments collected! 🎉")
+
+    if st.button("Reset all participants and payments"):
+        st.session_state.participants = {}
+        st.experimental_rerun()
+
 else:
-    st.info("Create a bill above to get started.")
+    st.info("Add participants above to start tracking payments.")
