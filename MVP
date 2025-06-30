@@ -1,33 +1,155 @@
-import streamlit as st
+import React, { useState, useEffect } from "react";
 
-# Store participants in session state
-if "participants" not in st.session_state:
-    st.session_state.participants = {}
+const currencyRates = {
+  USD: 1,
+  EUR: 0.9,
+  KRW: 1300,
+  INR: 83,
+};
 
-st.title("Splitzy — Online Bill Splitting")
+const currencies = Object.keys(currencyRates);
 
-total_amount = st.number_input("Enter total amount (USD)", min_value=0.0, format="%.2f")
-people_count = st.number_input("Number of people", min_value=1, step=1, value=2)
+function App() {
+  const [step, setStep] = useState("create"); // create or join
+  const [bill, setBill] = useState(null);
+  const [participants, setParticipants] = useState({});
 
-if total_amount > 0 and people_count > 0:
-    per_person_usd = total_amount / people_count
-    st.write(f"Amount per person: **${per_person_usd:.2f} USD**")
+  // Inputs for creating bill
+  const [total, setTotal] = useState("");
+  const [peopleCount, setPeopleCount] = useState(2);
 
-    name = st.text_input("Enter your name")
-    currency = st.selectbox("Choose your currency", ["USD", "EUR", "KRW", "INR"])
+  // Joining inputs
+  const [name, setName] = useState("");
+  const [currency, setCurrency] = useState("USD");
 
-    # Currency rates (example values)
-    rates = {"USD": 1, "EUR": 0.9, "KRW": 1300, "INR": 83}
-    amount_local = per_person_usd * rates[currency]
+  // LocalStorage key for saving participation info
+  const storageKey = bill ? `splitzy_${bill.id}_${name}` : null;
 
-    if st.button("I Paid"):
-        if name:
-            st.session_state.participants[name] = (currency, amount_local)
-            st.success(f"Thank you, {name}! Marked as paid.")
-        else:
-            st.error("Please enter your name!")
+  useEffect(() => {
+    if (bill && name) {
+      // Save paid status locally
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const paid = JSON.parse(saved);
+        setParticipants((prev) => ({ ...prev, [name]: paid }));
+      }
+    }
+  }, [bill, name]);
 
-    if st.session_state.participants:
-        st.write("### Participants who paid:")
-        for p_name, (cur, amt) in st.session_state.participants.items():
-            st.write(f"- {p_name} paid {amt:.2f} {cur}")
+  function createBill() {
+    if (!total || !peopleCount || peopleCount < 1) {
+      alert("Please enter a valid total and number of people");
+      return;
+    }
+    const id = Math.random().toString(36).substring(2, 9);
+    const perPerson = (parseFloat(total) / peopleCount).toFixed(2);
+    setBill({ id, total: parseFloat(total), peopleCount, perPerson });
+    setParticipants({});
+    setStep("join");
+  }
+
+  function pay() {
+    if (!name) {
+      alert("Please enter your name");
+      return;
+    }
+    setParticipants((prev) => {
+      const newParticipants = { ...prev, [name]: { paid: true, currency } };
+      localStorage.setItem(storageKey, JSON.stringify(newParticipants[name]));
+      return newParticipants;
+    });
+  }
+
+  const paidCount = Object.values(participants).filter(p => p.paid).length;
+
+  return (
+    <div className="max-w-xl mx-auto p-6 font-sans">
+      <h1 className="text-3xl font-bold mb-6 text-center text-indigo-600">Splitzy</h1>
+
+      {step === "create" && (
+        <div className="space-y-4 bg-indigo-50 p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold mb-2">Create a new bill</h2>
+          <input
+            type="number"
+            placeholder="Total Amount (USD)"
+            className="input input-bordered w-full p-2 rounded border"
+            value={total}
+            onChange={(e) => setTotal(e.target.value)}
+          />
+          <input
+            type="number"
+            placeholder="Number of People"
+            className="input input-bordered w-full p-2 rounded border"
+            min="1"
+            value={peopleCount}
+            onChange={(e) => setPeopleCount(e.target.value)}
+          />
+          <button
+            onClick={createBill}
+            className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
+          >
+            Create Bill
+          </button>
+        </div>
+      )}
+
+      {step === "join" && bill && (
+        <div className="space-y-4 bg-green-50 p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold mb-2">Bill #{bill.id}</h2>
+          <p>Total: <b>${bill.total.toFixed(2)} USD</b></p>
+          <p>Split between <b>{bill.peopleCount}</b> people</p>
+          <p>Per person: <b>${bill.perPerson} USD</b></p>
+          <p className="text-sm text-gray-600 mb-4">
+            Share this URL with your friends to join: <code>{window.location.href}</code>
+          </p>
+
+          <div className="space-y-2">
+            <input
+              type="text"
+              placeholder="Your name"
+              className="input input-bordered w-full p-2 rounded border"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <select
+              className="input input-bordered w-full p-2 rounded border"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+            >
+              {currencies.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <p>
+              You need to pay: <b>{(bill.perPerson * currencyRates[currency]).toFixed(2)} {currency}</b>
+            </p>
+            <button
+              onClick={pay}
+              disabled={participants[name]?.paid}
+              className={`px-4 py-2 rounded ${
+                participants[name]?.paid ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+              } text-white`}
+            >
+              {participants[name]?.paid ? "Paid" : "Mark as Paid"}
+            </button>
+          </div>
+
+          <h3 className="mt-6 font-semibold">Participants ({paidCount} / {bill.peopleCount} paid):</h3>
+          <ul className="list-disc list-inside">
+            {Object.entries(participants).map(([pName, data]) => (
+              <li key={pName} className={data.paid ? "text-green-700" : "text-red-600"}>
+                {pName}: {data.paid ? "✅ Paid" : "❌ Not paid"} ({data.currency})
+              </li>
+            ))}
+          </ul>
+
+          {paidCount === bill.peopleCount && (
+            <p className="mt-4 text-green-800 font-bold">All paid! 🎉</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
