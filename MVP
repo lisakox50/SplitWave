@@ -9,39 +9,36 @@ const currencyRates = {
 
 const currencies = Object.keys(currencyRates);
 
-function App() {
+export default function App() {
   const [step, setStep] = useState("create"); // create or join
   const [bill, setBill] = useState(null);
   const [participants, setParticipants] = useState({});
 
-  // Inputs for creating bill
   const [total, setTotal] = useState("");
   const [peopleCount, setPeopleCount] = useState(2);
 
-  // Joining inputs
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState("USD");
 
-  // LocalStorage key for saving participation info
-  const storageKey = bill ? `splitzy_${bill.id}_${name}` : null;
+  // Key for localStorage: unique per bill ID + name
+  const storageKey = bill && name ? `splitzy_${bill.id}_${name}` : null;
 
   useEffect(() => {
-    if (bill && name) {
-      // Save paid status locally
+    if (storageKey) {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const paid = JSON.parse(saved);
         setParticipants((prev) => ({ ...prev, [name]: paid }));
       }
     }
-  }, [bill, name]);
+  }, [storageKey, name]);
 
   function createBill() {
     if (!total || !peopleCount || peopleCount < 1) {
       alert("Please enter a valid total and number of people");
       return;
     }
-    const id = Math.random().toString(36).substring(2, 9);
+    const id = Math.random().toString(36).slice(2, 9);
     const perPerson = (parseFloat(total) / peopleCount).toFixed(2);
     setBill({ id, total: parseFloat(total), peopleCount, perPerson });
     setParticipants({});
@@ -60,33 +57,55 @@ function App() {
     });
   }
 
-  const paidCount = Object.values(participants).filter(p => p.paid).length;
+  const paidCount = Object.values(participants).filter((p) => p.paid).length;
 
   return (
-    <div className="max-w-xl mx-auto p-6 font-sans">
-      <h1 className="text-3xl font-bold mb-6 text-center text-indigo-600">Splitzy</h1>
+    <div
+      style={{
+        maxWidth: 480,
+        margin: "20px auto",
+        fontFamily: "Arial, sans-serif",
+        padding: 20,
+      }}
+    >
+      <h1 style={{ textAlign: "center", color: "#4B0082" }}>Splitzy</h1>
 
       {step === "create" && (
-        <div className="space-y-4 bg-indigo-50 p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-2">Create a new bill</h2>
+        <div
+          style={{
+            backgroundColor: "#f0f0f0",
+            padding: 20,
+            borderRadius: 8,
+          }}
+        >
+          <h2>Create a new bill</h2>
           <input
             type="number"
             placeholder="Total Amount (USD)"
-            className="input input-bordered w-full p-2 rounded border"
             value={total}
             onChange={(e) => setTotal(e.target.value)}
+            style={{ width: "100%", padding: 8, marginBottom: 10 }}
           />
           <input
             type="number"
             placeholder="Number of People"
-            className="input input-bordered w-full p-2 rounded border"
             min="1"
             value={peopleCount}
             onChange={(e) => setPeopleCount(e.target.value)}
+            style={{ width: "100%", padding: 8, marginBottom: 10 }}
           />
           <button
             onClick={createBill}
-            className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
+            style={{
+              width: "100%",
+              backgroundColor: "#4B0082",
+              color: "white",
+              padding: 10,
+              border: "none",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
           >
             Create Bill
           </button>
@@ -94,62 +113,87 @@ function App() {
       )}
 
       {step === "join" && bill && (
-        <div className="space-y-4 bg-green-50 p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-2">Bill #{bill.id}</h2>
-          <p>Total: <b>${bill.total.toFixed(2)} USD</b></p>
-          <p>Split between <b>{bill.peopleCount}</b> people</p>
-          <p>Per person: <b>${bill.perPerson} USD</b></p>
-          <p className="text-sm text-gray-600 mb-4">
+        <div
+          style={{
+            backgroundColor: "#e6ffe6",
+            padding: 20,
+            borderRadius: 8,
+          }}
+        >
+          <h2>Bill #{bill.id}</h2>
+          <p>
+            Total: <b>${bill.total.toFixed(2)} USD</b>
+          </p>
+          <p>
+            Split between <b>{bill.peopleCount}</b> people
+          </p>
+          <p>
+            Per person: <b>${bill.perPerson} USD</b>
+          </p>
+          <p style={{ fontSize: 12, color: "#555" }}>
             Share this URL with your friends to join: <code>{window.location.href}</code>
           </p>
 
-          <div className="space-y-2">
-            <input
-              type="text"
-              placeholder="Your name"
-              className="input input-bordered w-full p-2 rounded border"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <select
-              className="input input-bordered w-full p-2 rounded border"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-            >
-              {currencies.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <p>
-              You need to pay: <b>{(bill.perPerson * currencyRates[currency]).toFixed(2)} {currency}</b>
-            </p>
-            <button
-              onClick={pay}
-              disabled={participants[name]?.paid}
-              className={`px-4 py-2 rounded ${
-                participants[name]?.paid ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-              } text-white`}
-            >
-              {participants[name]?.paid ? "Paid" : "Mark as Paid"}
-            </button>
-          </div>
+          <input
+            type="text"
+            placeholder="Your name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={{ width: "100%", padding: 8, marginBottom: 10 }}
+          />
+          <select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            style={{ width: "100%", padding: 8, marginBottom: 10 }}
+          >
+            {currencies.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <p>
+            You need to pay:{" "}
+            <b>{(bill.perPerson * currencyRates[currency]).toFixed(2)} {currency}</b>
+          </p>
+          <button
+            onClick={pay}
+            disabled={participants[name]?.paid}
+            style={{
+              width: "100%",
+              backgroundColor: participants[name]?.paid ? "#999" : "#28a745",
+              color: "white",
+              padding: 10,
+              border: "none",
+              borderRadius: 4,
+              cursor: participants[name]?.paid ? "default" : "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            {participants[name]?.paid ? "Paid" : "Mark as Paid"}
+          </button>
 
-          <h3 className="mt-6 font-semibold">Participants ({paidCount} / {bill.peopleCount} paid):</h3>
-          <ul className="list-disc list-inside">
+          <h3>
+            Participants ({paidCount} / {bill.peopleCount} paid):
+          </h3>
+          <ul>
             {Object.entries(participants).map(([pName, data]) => (
-              <li key={pName} className={data.paid ? "text-green-700" : "text-red-600"}>
+              <li
+                key={pName}
+                style={{ color: data.paid ? "green" : "red" }}
+              >
                 {pName}: {data.paid ? "✅ Paid" : "❌ Not paid"} ({data.currency})
               </li>
             ))}
           </ul>
 
           {paidCount === bill.peopleCount && (
-            <p className="mt-4 text-green-800 font-bold">All paid! 🎉</p>
+            <p style={{ marginTop: 20, color: "green", fontWeight: "bold" }}>
+              All paid! 🎉
+            </p>
           )}
         </div>
       )}
     </div>
   );
 }
-
-export default App;
