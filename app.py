@@ -16,10 +16,11 @@ if "total_bill" not in st.session_state:
 role = st.radio("Who are you?", ["Organizer", "Participant"], horizontal=True)
 st.markdown("---")
 
-# === ORGANIZER VIEW ===
+# --- ORGANIZER VIEW ---
 if role == "Organizer":
     st.header("💰 Step 1: Set Total Bill")
-    total = st.number_input("Total bill (USD)", min_value=0.01, format="%.2f", value=st.session_state.total_bill)
+    safe_value = st.session_state.total_bill if st.session_state.total_bill >= 0.01 else 0.01
+    total = st.number_input("Total bill (USD)", min_value=0.01, format="%.2f", value=safe_value)
     if st.button("✅ Confirm Total Bill"):
         st.session_state.total_bill = total
         st.success(f"Total bill set to ${total:.2f}")
