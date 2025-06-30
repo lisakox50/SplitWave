@@ -1,0 +1,33 @@
+import streamlit as st
+
+# Store participants in session state
+if "participants" not in st.session_state:
+    st.session_state.participants = {}
+
+st.title("Splitzy — Online Bill Splitting")
+
+total_amount = st.number_input("Enter total amount (USD)", min_value=0.0, format="%.2f")
+people_count = st.number_input("Number of people", min_value=1, step=1, value=2)
+
+if total_amount > 0 and people_count > 0:
+    per_person_usd = total_amount / people_count
+    st.write(f"Amount per person: **${per_person_usd:.2f} USD**")
+
+    name = st.text_input("Enter your name")
+    currency = st.selectbox("Choose your currency", ["USD", "EUR", "KRW", "INR"])
+
+    # Currency rates (example values)
+    rates = {"USD": 1, "EUR": 0.9, "KRW": 1300, "INR": 83}
+    amount_local = per_person_usd * rates[currency]
+
+    if st.button("I Paid"):
+        if name:
+            st.session_state.participants[name] = (currency, amount_local)
+            st.success(f"Thank you, {name}! Marked as paid.")
+        else:
+            st.error("Please enter your name!")
+
+    if st.session_state.participants:
+        st.write("### Participants who paid:")
+        for p_name, (cur, amt) in st.session_state.participants.items():
+            st.write(f"- {p_name} paid {amt:.2f} {cur}")
